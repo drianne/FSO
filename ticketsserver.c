@@ -4,15 +4,15 @@
 #include <unistd.h>
 
 #define N_MAX 100
-#define QUEUE_SERV "/tickets_service"
+#define QUEUE_SERV "/tickets_x"
 #define QUEUE_CLIENTE "/tickets_received"
+#define MAX_SIZE 1024
+int tickets[N_MAX];
 
 typedef struct msg {
     int type;
     mqd_t queue;
 } Msg;
-
-int tickets[N_MAX];
 
 int getTicket(){
   int i, aux;
@@ -40,12 +40,17 @@ void return_ticket(int ticket){
 int main (){
   int ticket; // mensagem a enviar
   Msg msg;
-  mqd_t queue_serv, queue_client;
+  struct mq_attr attr;
+
+  attr.mq_flags = 0;
+  attr.mq_maxmsg = 10;
+  attr.mq_msgsize = sizeof(msg);
+  attr.mq_curmsgs = 0;
 
   tickets_init();
 
-  queue_serv = mq_open(QUEUE_SERV, O_CREAT | O_RDWR, 0644, NULL);
-  queue_client = mq_open(QUEUE_CLIENTE, O_CREAT | O_RDWR , 0644, NULL); // Abre fila do cliente
+  mqd_t queue_serv = mq_open(QUEUE_SERV, O_CREAT | O_RDWR, 0644, &attr);
+  mqd_t queue_client = mq_open(QUEUE_CLIENTE, O_CREAT | O_RDWR , 0644, &attr); // Abre fila do cliente
 
   // abre a fila de mensagens, se existir
   if(queue_serv < 0){
@@ -53,11 +58,12 @@ int main (){
     exit (1);
   }
   while(1){
-    ssize_t receive = mq_receive (queue_serv, (void*) &msg, sizeof(msg), 0);
+    ssize_t receive = mq_receive (queue_serv, (char *) &msg, sizeof(msg), NULL);
     if(receive != -1){
+      printf("Tamo de boa negada\n");
       if(msg.type == 0){ //Enviar ticket
         ticket = getTicket(); // valor entre 0 e 99
-        mqd_t queue_client = msg.queue;
+        printf("Ticket reservado: %d \n", ticket);
         int send = mq_send (queue_client, (void*) &ticket, sizeof(ticket), 0);
         if (send < 0){
           perror ("mq_send");
